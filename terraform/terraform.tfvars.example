@@ -8,3 +8,7 @@ public_key         = "~/.ssh/id_rsa.pub" # Path to your public SSH key
 private_key_path   = "~/.ssh/id_rsa"    # Path to your private SSH key
 hosted_zone_id     = "XXXXXXXXXXXXXXXXXX" # Route 53 hosted zone ID
 domain_name        = "Your Domain" # Domain name
+
+
+#Create another terraform.tfvars (without the example) file inside /terraform directory then make sure
+#you add your aws secret keys and generate a private and public key 
