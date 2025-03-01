@@ -2,4 +2,8 @@
 echo "*.tfstate*
 .terraform/
 .terraform.lock.hcl" > devops-deployment/terraform/.gitignore
-.terraform.tfvars
+terraform.tfvars
+# In ansible directory
+echo "inventory.ini" > devops-deployment/ansible/.gitignore
+
+
