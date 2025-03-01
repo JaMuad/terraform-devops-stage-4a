@@ -1,0 +1,5 @@
+# In terraform directory
+echo "*.tfstate*
+.terraform/
+.terraform.lock.hcl" > devops-deployment/terraform/.gitignore
+.terraform.tfvars

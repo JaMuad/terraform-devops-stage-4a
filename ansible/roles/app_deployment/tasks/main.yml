@@ -1,0 +1,169 @@
+---
+- name: Clone repository
+  git:
+    repo: "{{ repo_url }}"
+    dest: "{{ app_dir }}"
+  become_user: ubuntu
+
+- name: Create .env file
+  copy:
+    dest: "{{ app_dir }}/.env"
+    content: |
+      # Frontend
+      PORT=8080
+      AUTH_API_ADDRESS=http://auth-api:8081
+      TODOS_API_ADDRESS=http://todos-api:8082
+      # Auth API
+      AUTH_API_PORT=8081
+      JWT_SECRET=myfancysecret
+      USERS_API_ADDRESS=http://users-api:8083
+      # Todos API
+      JWT_SECRET=myfancysecret
+      REDIS_HOST=redis-queue
+      REDIS_PORT=6379
+      REDIS_CHANNEL=log_channel
+      # Users API
+      SERVER_PORT=8083
+      JWT_SECRET=myfancysecret
+      # Log Message Processor
+      REDIS_HOST=redis-queue
+      REDIS_PORT=6379
+      REDIS_CHANNEL=log_channel
+      # Domain Name and Email
+      DOMAIN_NAME={{ domain_name }}
+      EMAIL={{ email }}
+      # Login Details
+      USERNAME=admin
+      PASSWORD=Admin123
+    owner: ubuntu
+    group: ubuntu
+    mode: '0644'
+
+- name: Create docker-compose.yml
+  copy:
+    dest: "{{ app_dir }}/docker-compose.yml"
+    content: |
+      version: '3'
+
+      services:
+        traefik:
+          image: traefik:v2.9
+          ports:
+            - "80:80"
+            - "443:443"
+            - "8080:8080"
+          volumes:
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+            - ./traefik/traefik.toml:/etc/traefik/traefik.toml
+            - ./traefik/acme.json:/acme.json
+          restart: always
+          networks:
+            - app-network
+
+        frontend:
+          build:
+            context: .
+            dockerfile: Dockerfile-frontend
+          environment:
+            - PORT=${PORT}
+            - AUTH_API_ADDRESS=${AUTH_API_ADDRESS}
+            - TODOS_API_ADDRESS=${TODOS_API_ADDRESS}
+          depends_on:
+            - auth-api
+            - todos-api
+          labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.frontend.rule=Host(`${DOMAIN_NAME}`)"
+            - "traefik.http.routers.frontend.entrypoints=websecure"
+            - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
+          restart: always
+          networks:
+            - app-network
+
+        auth-api:
+          build:
+            context: .
+            dockerfile: Dockerfile-auth-api
+          environment:
+            - AUTH_API_PORT=${AUTH_API_PORT}
+            - JWT_SECRET=${JWT_SECRET}
+            - USERS_API_ADDRESS=${USERS_API_ADDRESS}
+          depends_on:
+            - users-api
+          labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.auth-api.rule=Host(`auth.${DOMAIN_NAME}`)"
+            - "traefik.http.routers.auth-api.entrypoints=websecure"
+            - "traefik.http.routers.auth-api.tls.certresolver=letsencrypt"
+          restart: always
+          networks:
+            - app-network
+
+        todos-api:
+          build:
+            context: .
+            dockerfile: Dockerfile-todos-api
+          environment:
+            - JWT_SECRET=${JWT_SECRET}
+            - REDIS_HOST=${REDIS_HOST}
+            - REDIS_PORT=${REDIS_PORT}
+            - REDIS_CHANNEL=${REDIS_CHANNEL}
+          depends_on:
+            - redis-queue
+          labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.todos-api.rule=Host(`todos.${DOMAIN_NAME}`)"
+            - "traefik.http.routers.todos-api.entrypoints=websecure"
+            - "traefik.http.routers.todos-api.tls.certresolver=letsencrypt"
+          restart: always
+          networks:
+            - app-network
+
+        users-api:
+          build:
+            context: .
+            dockerfile: Dockerfile-usersapi
+          environment:
+            - SERVER_PORT=${SERVER_PORT}
+            - JWT_SECRET=${JWT_SECRET}
+          labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.users-api.rule=Host(`users.${DOMAIN_NAME}`)"
+            - "traefik.http.routers.users-api.entrypoints=websecure"
+            - "traefik.http.routers.users-api.tls.certresolver=letsencrypt"
+          restart: always
+          networks:
+            - app-network
+
+        log-message-processor:
+          build:
+            context: .
+            dockerfile: Dockerfile-log-message-processor
+          environment:
+            - REDIS_HOST=${REDIS_HOST}
+            - REDIS_PORT=${REDIS_PORT}
+            - REDIS_CHANNEL=${REDIS_CHANNEL}
+          depends_on:
+            - redis-queue
+          restart: always
+          networks:
+            - app-network
+
+        redis-queue:
+          image: redis:alpine
+          ports:
+            - "6379:6379"
+          restart: always
+          networks:
+            - app-network
+
+      networks:
+        app-network:
+          driver: bridge
+    owner: ubuntu
+    group: ubuntu
+    mode: '0644'
+
+- name: Start the application with Docker Compose
+  shell: cd {{ app_dir }} && docker-compose up -d
+  become_user: ubuntu

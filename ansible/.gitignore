@@ -1,0 +1,2 @@
+# In ansible directory
+echo "inventory.ini" > devops-deployment/ansible/.gitignore
