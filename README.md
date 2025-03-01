@@ -72,7 +72,7 @@ This will:
 
 ## Infrastructure Components
 
-- **AWS Region**: eu-central-1 (Frankfurt)
+- **AWS Region**: us-west-2 (Oregon)
 - **EC2 Instance**: t2.micro with Ubuntu 22.04 LTS
 - **Security**: Security group allowing ports 22 (SSH), 80 (HTTP), and 443 (HTTPS)
 - **Domain**: Configured with Route53
